@@ -5,6 +5,7 @@ import { HomeView } from './views/HomeView';
 import { TransferView } from './views/TransferView';
 import { HistoryView } from './views/HistoryView';
 import { ProfileView } from './views/ProfileView';
+import { API_URL } from './config';
 
 interface Toast {
   id: string;
@@ -48,7 +49,7 @@ export default function App() {
     if (!token) return;
     try {
       // 1. Get current account
-      const accRes = await fetch('/api/account/me', {
+      const accRes = await fetch(`${API_URL}/api/account/me`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (accRes.ok) {
@@ -57,7 +58,7 @@ export default function App() {
       }
 
       // 2. Get transaction history
-      const txRes = await fetch('/api/transactions', {
+      const txRes = await fetch(`${API_URL}/api/transactions`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (txRes.ok) {
@@ -85,9 +86,11 @@ export default function App() {
       return;
     }
 
-    const wsUrl = `ws://localhost:3000`;
-    console.log(`[WS] Conectando a ${wsUrl}...`);
-    const ws = new WebSocket(wsUrl);
+    const WS_URL = API_URL
+      .replace("https://", "wss://")
+      .replace("http://", "ws://");
+    console.log(`[WS] Conectando a ${WS_URL}...`);
+    const ws = new WebSocket(WS_URL);
     wsRef.current = ws;
 
     ws.onopen = () => {
@@ -177,7 +180,7 @@ export default function App() {
     setProcessingAction(true);
     setModalError('');
     try {
-      const response = await fetch('/api/deposits', {
+      const response = await fetch(`${API_URL}/api/deposits`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -204,7 +207,7 @@ export default function App() {
     setProcessingAction(true);
     setModalError('');
     try {
-      const response = await fetch('/api/payments', {
+      const response = await fetch(`${API_URL}/api/payments`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -231,7 +234,7 @@ export default function App() {
     if (simLoading || !token) return;
     setSimLoading(true);
     try {
-      const response = await fetch('/api/simulator/incoming-transfer', {
+      const response = await fetch(`${API_URL}/api/simulator/incoming-transfer`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -259,7 +262,7 @@ export default function App() {
     handleLogout();
     setSimLoading(true);
     try {
-      const response = await fetch('/api/auth/login', {
+      const response = await fetch(`${API_URL}/api/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password: 'password123' }),

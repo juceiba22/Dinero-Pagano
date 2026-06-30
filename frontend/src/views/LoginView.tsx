@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Mail, Lock, User, Wallet, ArrowRight } from 'lucide-react';
+import { API_URL } from '../config';
 
 interface LoginViewProps {
   onLoginSuccess: (token: string, user: any, account: any) => void;
@@ -20,7 +21,9 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
     setLoading(true);
 
     try {
-      const endpoint = isRegistering ? '/api/auth/register' : '/api/auth/login';
+      const endpoint = isRegistering
+        ? `${API_URL}/api/auth/register`
+        : `${API_URL}/api/auth/login`;
       const body = isRegistering
         ? { email, password, name, startingBalance: parseFloat(startingBalance) }
         : { email, password };
@@ -42,7 +45,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
         setIsRegistering(false);
         setError('');
         // Attempt auto-login
-        const loginResponse = await fetch('/api/auth/login', {
+        const loginResponse = await fetch(`${API_URL}/api/auth/login`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email, password }),
@@ -67,7 +70,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
     setError('');
     setLoading(true);
     try {
-      const response = await fetch('/api/auth/login', {
+      const response = await fetch(`${API_URL}/api/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: presetEmail, password: 'password123' }),

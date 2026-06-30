@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Search, ArrowLeft, AlertCircle, CheckCircle2, XCircle, Share2, Wallet, ArrowRight, Loader2 } from 'lucide-react';
 import { CustomKeyboard } from '../components/CustomKeyboard';
+import { API_URL } from '../config';
 
 interface TransferViewProps {
   userBalance: string;
@@ -81,7 +82,7 @@ export const TransferView: React.FC<TransferViewProps> = ({
     setLoadingLookup(true);
 
     try {
-      const response = await fetch(`/api/account/lookup?identifier=${encodeURIComponent(identifier.trim())}`, {
+      const response = await fetch(`${API_URL}/api/account/lookup?identifier=${encodeURIComponent(identifier.trim())}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -105,7 +106,7 @@ export const TransferView: React.FC<TransferViewProps> = ({
     setStep('PROCESSING');
 
     try {
-      const response = await fetch('/api/transfers', {
+      const response = await fetch(`${API_URL}/api/transfers`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
