@@ -1,0 +1,66 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply antialiased bg-[#05050A] text-slate-100;
+  }
+}
+
+/* Glassmorphism Effect */
+.glass-panel {
+  background: rgba(21, 21, 37, 0.7);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.glass-panel-light {
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+/* Hide Scrollbar */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Custom animation for phone pulse notifications */
+@keyframes ring-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(94, 92, 230, 0.4);
+  }
+  70% {
+    box-shadow: 0 0 0 10px rgba(94, 92, 230, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(94, 92, 230, 0);
+  }
+}
+
+.ring-pulse-effect {
+  animation: ring-pulse 2s infinite;
+}
+
+/* Custom slider/swipe animation for payment slider button */
+@keyframes shimmery {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.shimmer-bg {
+  background: linear-gradient(90deg, #5E5CE6 25%, #8A89FF 50%, #5E5CE6 75%);
+  background-size: 200% 100%;
+  animation: shimmery 3s infinite linear;
+}

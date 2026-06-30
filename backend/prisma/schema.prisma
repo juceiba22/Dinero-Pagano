@@ -1,0 +1,56 @@
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  account   Account?
+}
+
+model Account {
+  id            String        @id @default(uuid())
+  name          String
+  type          String        // 'ASSET' | 'LIABILITY'
+  balance       Decimal       @default(0)
+  currency      String        @default("ARS")
+  userId        String?       @unique
+  user          User?         @relation(fields: [userId], references: [id])
+  cvu           String?       @unique
+  alias         String?       @unique
+  ledgerEntries LedgerEntry[]
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+}
+
+model JournalEntry {
+  id            String        @id @default(uuid())
+  type          String        // 'TRANSFER' | 'DEPOSIT' | 'QR_PAYMENT'
+  description   String
+  status        String        @default("PENDING") // 'PENDING' | 'COMPLETED' | 'FAILED'
+  amount        Decimal
+  reference     String        @unique
+  ledgerEntries LedgerEntry[]
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+}
+
+model LedgerEntry {
+  id             String       @id @default(uuid())
+  journalEntryId String
+  journalEntry   JournalEntry @relation(fields: [journalEntryId], references: [id], onDelete: Cascade)
+  accountId      String
+  account        Account      @relation(fields: [accountId], references: [id])
+  type           String       // 'DEBIT' | 'CREDIT'
+  amount         Decimal
+  createdAt      DateTime     @default(now())
+}
