@@ -67,32 +67,10 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
     }
   };
 
-  const handleQuickLogin = async (presetEmail: string) => {
-    setError('');
-    setLoading(true);
-    try {
-      const response = await fetch(`${API_URL}/api/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: presetEmail, password: 'password123' }),
-      });
-
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.error || 'Error al iniciar sesión rápida.');
-      }
-      onLoginSuccess(data.token, data.user, data.account);
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   return (
-    <div className="flex flex-col h-full justify-between p-6 bg-[#0B0B14]">
+    <div className="flex flex-col h-full justify-center p-6 bg-[#0B0B14]">
       {/* Brand Header */}
-      <div className="flex flex-col items-center mt-6">
+      <div className="flex flex-col items-center mb-6">
         <div className="w-16 h-16 rounded-3xl bg-gradient-to-tr from-fintech-primary to-indigo-400 flex items-center justify-center shadow-lg shadow-fintech-primary/20 ring-pulse-effect">
           <Wallet className="w-8 h-8 text-white" />
         </div>
@@ -105,7 +83,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
       </div>
 
       {/* Main Login Card */}
-      <div className="glass-panel rounded-3xl p-5 my-auto shadow-xl border border-white/5">
+      <div className="glass-panel rounded-3xl p-5 shadow-xl border border-white/5">
         <h2 className="text-xl font-semibold text-white mb-4">
           {isRegistering ? 'Crear Cuenta Pasivo' : 'Ingresar a tu Cuenta'}
         </h2>
@@ -224,50 +202,6 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
             {isRegistering ? '¿Ya tienes cuenta? Inicia sesión' : '¿No tienes cuenta? Regístrate'}
           </button>
         </div>
-      </div>
-
-      {/* Demo Credentials Quick Switcher (Educational Tool) */}
-      <div className="bg-[#121220] border border-white/5 rounded-2xl p-4 mt-auto">
-        <p className="text-xs font-bold text-fintech-warning mb-2.5 uppercase tracking-wider text-center">
-          ⚡ Accesos Rápidos Demo (Semilla)
-        </p>
-        <div className="grid grid-cols-4 gap-1.5">
-          <button
-            onClick={() => handleQuickLogin('test@wallet.com')}
-            disabled={loading}
-            className="bg-slate-800/60 hover:bg-slate-800 text-[9px] text-white py-2 px-0.5 rounded-xl text-center flex flex-col items-center justify-center font-medium border border-white/5"
-          >
-            <span className="font-bold text-fintech-primary text-[10px]">$15K</span>
-            <span>Test User</span>
-          </button>
-          <button
-            onClick={() => handleQuickLogin('juan@perez.com')}
-            disabled={loading}
-            className="bg-slate-800/60 hover:bg-slate-800 text-[9px] text-white py-2 px-0.5 rounded-xl text-center flex flex-col items-center justify-center font-medium border border-white/5"
-          >
-            <span className="font-bold text-fintech-accent text-[10px]">$25K</span>
-            <span>Juan Pérez</span>
-          </button>
-          <button
-            onClick={() => handleQuickLogin('maria@rodriguez.com')}
-            disabled={loading}
-            className="bg-slate-800/60 hover:bg-slate-800 text-[9px] text-white py-2 px-0.5 rounded-xl text-center flex flex-col items-center justify-center font-medium border border-white/5"
-          >
-            <span className="font-bold text-indigo-400 text-[10px]">$45K</span>
-            <span>M. Rodríguez</span>
-          </button>
-          <button
-            onClick={() => handleQuickLogin('admin@wallet.com')}
-            disabled={loading}
-            className="bg-slate-800/60 hover:bg-slate-800 text-[9px] text-white py-2 px-0.5 rounded-xl text-center flex flex-col items-center justify-center font-medium border border-white/5"
-          >
-            <span className="font-bold text-red-400 text-[10px]">ADMIN</span>
-            <span>Admin</span>
-          </button>
-        </div>
-        <p className="text-[10px] text-center text-slate-500 mt-2">
-          La contraseña por defecto para todos es <code className="bg-slate-900 px-1 rounded text-slate-400">password123</code>.
-        </p>
       </div>
     </div>
   );

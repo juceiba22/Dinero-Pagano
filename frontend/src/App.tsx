@@ -257,27 +257,6 @@ export default function App() {
     }
   };
 
-  // Quick switch user (Side panel shortcut)
-  const handleQuickSwitch = async (email: string) => {
-    handleLogout();
-    setSimLoading(true);
-    try {
-      const response = await fetch(`${API_URL}/api/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password: 'password123' }),
-      });
-      const data = await response.json();
-      if (response.ok) {
-        handleLoginSuccess(data.token, data.user, data.account);
-      }
-    } catch (e: any) {
-      addLog(`Error en quick switch: ${e.message}`);
-    } finally {
-      setSimLoading(false);
-    }
-  };
-
   return (
     <div className="w-full min-h-screen bg-[#0B0B14] text-slate-100 flex flex-col justify-between relative overflow-hidden">
       
@@ -562,29 +541,6 @@ export default function App() {
                 </button>
               </div>
 
-              <div className="bg-[#121226] border border-white/5 rounded-2xl p-4 space-y-2">
-                <span className="text-xs font-bold text-slate-200 block">👥 Conmutador Rápido de Cuenta</span>
-                <div className="grid grid-cols-3 gap-1.5">
-                  <button
-                    onClick={() => { handleQuickSwitch('test@wallet.com'); setSimOpen(false); }}
-                    className="py-1.5 bg-[#18182E] text-slate-300 border border-white/5 rounded-lg text-[9px] font-bold"
-                  >
-                    Test User
-                  </button>
-                  <button
-                    onClick={() => { handleQuickSwitch('juan@perez.com'); setSimOpen(false); }}
-                    className="py-1.5 bg-[#18182E] text-slate-300 border border-white/5 rounded-lg text-[9px] font-bold"
-                  >
-                    Juan
-                  </button>
-                  <button
-                    onClick={() => { handleQuickSwitch('maria@rodriguez.com'); setSimOpen(false); }}
-                    className="py-1.5 bg-[#18182E] text-slate-300 border border-white/5 rounded-lg text-[9px] font-bold"
-                  >
-                    María
-                  </button>
-                </div>
-              </div>
 
               <div className="space-y-2">
                 <div className="flex justify-between items-center text-[10px]">
