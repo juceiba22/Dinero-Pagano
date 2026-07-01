@@ -87,9 +87,7 @@ export default function App() {
       return;
     }
 
-    const WS_URL = API_URL
-      .replace("https://", "wss://")
-      .replace("http://", "wss://");
+    const WS_URL = "wss://dinero-pagano-production.up.railway.app";
     console.log(`[WS] Conectando a ${WS_URL}...`);
     const ws = new WebSocket(WS_URL);
     wsRef.current = ws;
