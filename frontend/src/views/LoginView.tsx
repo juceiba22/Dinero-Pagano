@@ -231,30 +231,38 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
         <p className="text-xs font-bold text-fintech-warning mb-2.5 uppercase tracking-wider text-center">
           ⚡ Accesos Rápidos Demo (Semilla)
         </p>
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-4 gap-1.5">
           <button
             onClick={() => handleQuickLogin('test@wallet.com')}
             disabled={loading}
-            className="bg-slate-800/60 hover:bg-slate-800 text-[10px] text-white py-2 px-1 rounded-xl text-center flex flex-col items-center justify-center font-medium border border-white/5"
+            className="bg-slate-800/60 hover:bg-slate-800 text-[9px] text-white py-2 px-0.5 rounded-xl text-center flex flex-col items-center justify-center font-medium border border-white/5"
           >
-            <span className="font-bold text-fintech-primary text-[11px]">$15K</span>
+            <span className="font-bold text-fintech-primary text-[10px]">$15K</span>
             <span>Test User</span>
           </button>
           <button
             onClick={() => handleQuickLogin('juan@perez.com')}
             disabled={loading}
-            className="bg-slate-800/60 hover:bg-slate-800 text-[10px] text-white py-2 px-1 rounded-xl text-center flex flex-col items-center justify-center font-medium border border-white/5"
+            className="bg-slate-800/60 hover:bg-slate-800 text-[9px] text-white py-2 px-0.5 rounded-xl text-center flex flex-col items-center justify-center font-medium border border-white/5"
           >
-            <span className="font-bold text-fintech-accent text-[11px]">$25K</span>
+            <span className="font-bold text-fintech-accent text-[10px]">$25K</span>
             <span>Juan Pérez</span>
           </button>
           <button
             onClick={() => handleQuickLogin('maria@rodriguez.com')}
             disabled={loading}
-            className="bg-slate-800/60 hover:bg-slate-800 text-[10px] text-white py-2 px-1 rounded-xl text-center flex flex-col items-center justify-center font-medium border border-white/5"
+            className="bg-slate-800/60 hover:bg-slate-800 text-[9px] text-white py-2 px-0.5 rounded-xl text-center flex flex-col items-center justify-center font-medium border border-white/5"
           >
-            <span className="font-bold text-indigo-400 text-[11px]">$45K</span>
+            <span className="font-bold text-indigo-400 text-[10px]">$45K</span>
             <span>M. Rodríguez</span>
+          </button>
+          <button
+            onClick={() => handleQuickLogin('admin@wallet.com')}
+            disabled={loading}
+            className="bg-slate-800/60 hover:bg-slate-800 text-[9px] text-white py-2 px-0.5 rounded-xl text-center flex flex-col items-center justify-center font-medium border border-white/5"
+          >
+            <span className="font-bold text-red-400 text-[10px]">ADMIN</span>
+            <span>Admin</span>
           </button>
         </div>
         <p className="text-[10px] text-center text-slate-500 mt-2">

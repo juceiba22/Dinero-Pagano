@@ -7,6 +7,7 @@ export enum JournalType {
   TRANSFER = 'TRANSFER',
   DEPOSIT = 'DEPOSIT',
   QR_PAYMENT = 'QR_PAYMENT',
+  ADMIN_ADJUSTMENT = 'ADMIN_ADJUSTMENT',
 }
 
 export enum TransactionStatus {

@@ -33,6 +33,18 @@ async function main() {
   });
   console.log('Cuenta de activos del sistema creada.');
 
+  // Crear Central Vault para Inyecciones Administrativas
+  const centralVault = await prisma.account.create({
+    data: {
+      name: 'Fintech Central Vault',
+      type: AccountType.ASSET,
+      balance: new Decimal(1000000000),
+      cvu: 'FINTECH_CENTRAL_VAULT',
+      alias: 'FINTECH.CENTRAL.VAULT',
+    },
+  });
+  console.log('Cuenta Central Vault creada.');
+
   // 3. Crear Cuenta de Comercio (Mercado Pago / Ualá partner) para Pago QR
   const systemMerchant = await prisma.account.create({
     data: {
@@ -53,6 +65,7 @@ async function main() {
       name: 'Usuario Prueba',
       email: 'test@wallet.com',
       dni: '12345678',
+      role: 'USER',
       cvu: '0000007912345678901234',
       alias: 'usuario.prueba.fintech',
       startingBalance: 15000,
@@ -61,6 +74,7 @@ async function main() {
       name: 'Juan Pérez',
       email: 'juan@perez.com',
       dni: '22222222',
+      role: 'USER',
       cvu: '0000007911111111111111',
       alias: 'juan.perez.pago',
       startingBalance: 25000,
@@ -69,9 +83,19 @@ async function main() {
       name: 'María Rodríguez',
       email: 'maria@rodriguez.com',
       dni: '33333333',
+      role: 'USER',
       cvu: '0000007922222222222222',
       alias: 'maria.rodriguez.efectivo',
       startingBalance: 45000,
+    },
+    {
+      name: 'Administrador Dinero Pagano',
+      email: 'admin@wallet.com',
+      dni: '99999999',
+      role: 'ADMIN',
+      cvu: '0000007999999999999999',
+      alias: 'admin.dinero.pagano',
+      startingBalance: 0,
     },
   ];
 
@@ -82,6 +106,7 @@ async function main() {
         email: u.email,
         password: hashedPassword,
         dni: u.dni,
+        role: u.role,
       },
     });
 

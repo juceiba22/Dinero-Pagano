@@ -222,6 +222,7 @@ app.post('/api/auth/login', async (req, res) => {
         id: user.id,
         email: user.email,
         name: user.name,
+        role: user.role,
       },
       account: {
         id: user.account?.id,
@@ -361,6 +362,297 @@ app.get('/api/transactions', authenticateToken, async (req: AuthenticatedRequest
     res.status(500).json({ error: 'Error al obtener transacciones.' });
   }
 });
+
+// --- ADMIN AUTHORIZATION MIDDLEWARE ---
+async function isAdmin(req: AuthenticatedRequest, res: express.Response, next: express.NextFunction) {
+  if (!req.user) {
+    return res.status(401).json({ error: 'Acceso no autorizado. Sesión faltante.' });
+  }
+
+  try {
+    const userObj = await prisma.user.findUnique({
+      where: { id: req.user.userId },
+    });
+
+    if (!userObj || userObj.role !== 'ADMIN') {
+      return res.status(403).json({ error: 'Acceso prohibido. Se requieren permisos de Administrador.' });
+    }
+
+    next();
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Error al verificar permisos de administrador.' });
+  }
+}
+
+// --- ADMIN API ENDPOINTS ---
+
+// GET /api/admin/transactions - Global transactions paginated and filtered
+app.get('/api/admin/transactions', authenticateToken, isAdmin, async (req, res) => {
+  const { startDate, endDate, type, search, page = '1', limit = '10' } = req.query;
+
+  const pageNum = parseInt(String(page)) || 1;
+  const limitNum = parseInt(String(limit)) || 10;
+  const skip = (pageNum - 1) * limitNum;
+
+  const whereClause: any = {};
+
+  if (startDate || endDate) {
+    whereClause.createdAt = {};
+    if (startDate) {
+      whereClause.createdAt.gte = new Date(String(startDate));
+    }
+    if (endDate) {
+      whereClause.createdAt.lte = new Date(String(endDate));
+    }
+  }
+
+  if (type) {
+    whereClause.type = String(type);
+  }
+
+  if (search) {
+    const searchStr = String(search);
+    whereClause.OR = [
+      { description: { contains: searchStr } },
+      { reference: { contains: searchStr } },
+      {
+        ledgerEntries: {
+          some: {
+            account: {
+              OR: [
+                { cvu: { contains: searchStr } },
+                { alias: { contains: searchStr } },
+                { name: { contains: searchStr } },
+                { user: { name: { contains: searchStr } } },
+                { user: { dni: { contains: searchStr } } },
+              ],
+            },
+          },
+        },
+      },
+    ];
+  }
+
+  try {
+    const totalCount = await prisma.journalEntry.count({ where: whereClause });
+    const journalEntries = await prisma.journalEntry.findMany({
+      where: whereClause,
+      include: {
+        ledgerEntries: {
+          include: {
+            account: {
+              include: { user: true },
+            },
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+      skip,
+      take: limitNum,
+    });
+
+    const formatted = journalEntries.map((journal) => {
+      const debitEntry = journal.ledgerEntries.find((e) => e.type === 'DEBIT');
+      const creditEntry = journal.ledgerEntries.find((e) => e.type === 'CREDIT');
+
+      const sourceAccount = debitEntry
+        ? debitEntry.account.user?.name || debitEntry.account.name
+        : 'N/A';
+      const sourceIdentifier = debitEntry ? debitEntry.account.cvu : 'N/A';
+
+      const destAccount = creditEntry
+        ? creditEntry.account.user?.name || creditEntry.account.name
+        : 'N/A';
+      const destIdentifier = creditEntry ? creditEntry.account.cvu : 'N/A';
+
+      return {
+        id: journal.id,
+        reference: journal.reference,
+        type: journal.type,
+        status: journal.status,
+        amount: Number(journal.amount.toString()),
+        description: journal.description,
+        createdAt: journal.createdAt,
+        sourceAccount,
+        sourceIdentifier,
+        destAccount,
+        destIdentifier,
+      };
+    });
+
+    res.json({
+      transactions: formatted,
+      pagination: {
+        total: totalCount,
+        page: pageNum,
+        limit: limitNum,
+        pages: Math.ceil(totalCount / limitNum),
+      },
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Error al obtener transacciones globales.' });
+  }
+});
+
+// GET /api/admin/ledger - Accounting ledger double-entry auditor
+app.get('/api/admin/ledger', authenticateToken, isAdmin, async (req, res) => {
+  const { page = '1', limit = '10' } = req.query;
+  const pageNum = parseInt(String(page)) || 1;
+  const limitNum = parseInt(String(limit)) || 10;
+  const skip = (pageNum - 1) * limitNum;
+
+  try {
+    const totalCount = await prisma.journalEntry.count();
+    const journals = await prisma.journalEntry.findMany({
+      include: {
+        ledgerEntries: {
+          include: {
+            account: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+      skip,
+      take: limitNum,
+    });
+
+    const ledgerDetails = journals.map((journal) => {
+      let totalDebits = new Decimal(0);
+      let totalCredits = new Decimal(0);
+
+      const entries = journal.ledgerEntries.map((entry) => {
+        const amt = new Decimal(entry.amount);
+        if (entry.type === 'DEBIT') {
+          totalDebits = totalDebits.add(amt);
+        } else {
+          totalCredits = totalCredits.add(amt);
+        }
+
+        return {
+          id: entry.id,
+          accountId: entry.accountId,
+          accountName: entry.account.name,
+          accountCvu: entry.account.cvu,
+          accountType: entry.account.type,
+          type: entry.type,
+          amount: Number(entry.amount.toString()),
+        };
+      });
+
+      const balanced = totalDebits.sub(totalCredits).equals(0);
+
+      return {
+        journalId: journal.id,
+        reference: journal.reference,
+        type: journal.type,
+        description: journal.description,
+        amount: Number(journal.amount.toString()),
+        createdAt: journal.createdAt,
+        entries,
+        audit: {
+          totalDebits: Number(totalDebits.toString()),
+          totalCredits: Number(totalCredits.toString()),
+          difference: Number(totalDebits.sub(totalCredits).toString()),
+          balanced,
+        },
+      };
+    });
+
+    res.json({
+      ledger: ledgerDetails,
+      pagination: {
+        total: totalCount,
+        page: pageNum,
+        limit: limitNum,
+        pages: Math.ceil(totalCount / limitNum),
+      },
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Error al obtener libro mayor contable.' });
+  }
+});
+
+// POST /api/admin/accounts/credit - Inyección de saldo desde el vault central
+app.post('/api/admin/accounts/credit', authenticateToken, isAdmin, async (req, res) => {
+  const { targetUserCvu, amount, reason } = req.body;
+
+  if (!targetUserCvu || !amount || Number(amount) <= 0) {
+    return res.status(400).json({ error: 'Campos requeridos y monto positivo inválidos.' });
+  }
+
+  try {
+    const result = await LedgerService.executeAdminAdjustment(
+      targetUserCvu,
+      Number(amount),
+      reason || 'Crédito administrativo'
+    );
+
+    // Notify receiver via WS push notification
+    if (result.targetAccount.userId) {
+      sendToUser(result.targetAccount.userId, {
+        type: 'push_notification',
+        title: '✨ Crédito Administrativo',
+        message: `Se han acreditado $${Number(amount).toLocaleString('es-AR')} en tu cuenta. Motivo: ${reason || 'Ajuste Contable'}`,
+        amount: Number(amount),
+        partyName: 'Administración',
+        journalEntryId: result.journalEntry.id,
+      });
+
+      // Update receiver's balance
+      sendToUser(result.targetAccount.userId, {
+        type: 'balance_updated',
+      });
+    }
+
+    res.json({
+      message: 'Ajuste administrativo completado con éxito.',
+      journalEntryId: result.journalEntry.id,
+      reference: result.journalEntry.reference,
+      targetUser: result.targetAccount.user?.name || result.targetAccount.name,
+      newTargetBalance: Number(result.updatedTargetBalance.toString()),
+    });
+  } catch (err: any) {
+    console.error(err);
+    res.status(500).json({ error: err.message || 'Error al ejecutar ajuste administrativo.' });
+  }
+});
+
+// GET /api/admin/metrics - Administrative statistics
+app.get('/api/admin/metrics', authenticateToken, isAdmin, async (req, res) => {
+  try {
+    const activeUsersCount = await prisma.user.count();
+
+    const volumeResult = await prisma.journalEntry.aggregate({
+      where: { type: 'TRANSFER' },
+      _sum: { amount: true },
+    });
+    const totalVolume = volumeResult._sum.amount ? Number(volumeResult._sum.amount.toString()) : 0;
+
+    const issuedResult = await prisma.journalEntry.aggregate({
+      where: {
+        OR: [
+          { type: 'DEPOSIT' },
+          { type: 'ADMIN_ADJUSTMENT' },
+        ],
+      },
+      _sum: { amount: true },
+    });
+    const totalMoneyIssued = issuedResult._sum.amount ? Number(issuedResult._sum.amount.toString()) : 0;
+
+    res.json({
+      activeUsersCount,
+      totalVolume,
+      totalMoneyIssued,
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Error al obtener métricas contables.' });
+  }
+});
+
 
 // --- CORE FINANCIAL OPERATIONS WITH DELAY SIMULATION ---
 

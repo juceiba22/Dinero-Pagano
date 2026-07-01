@@ -373,4 +373,102 @@ export class LedgerService {
       };
     });
   }
+
+  /**
+   * Helper to ensure the Central Vault account exists.
+   */
+  private static async getCentralVaultAccount(tx: any) {
+    let account = await tx.account.findUnique({
+      where: { cvu: 'FINTECH_CENTRAL_VAULT' },
+    });
+
+    if (!account) {
+      account = await tx.account.create({
+        data: {
+          name: 'Fintech Central Vault',
+          type: AccountType.ASSET,
+          balance: new Decimal(1000000000), // Cuenta madre de capital administrativo
+          cvu: 'FINTECH_CENTRAL_VAULT',
+          alias: 'FINTECH.CENTRAL.VAULT',
+        },
+      });
+    }
+    return account;
+  }
+
+  /**
+   * Executa un ajuste administrativo (Inyección de fondos)
+   * Debita del Vault Central y Acredita a la cuenta destino de forma atómica (ACID).
+   */
+  static async executeAdminAdjustment(targetIdentifier: string, amount: number, reason: string) {
+    if (amount <= 0) throw new Error('El monto debe ser mayor a cero.');
+
+    return await prisma.$transaction(async (tx) => {
+      // Buscar cuenta destino (por CVU, Alias o DNI del usuario)
+      const targetAccount = await tx.account.findFirst({
+        where: {
+          OR: [
+            { cvu: targetIdentifier },
+            { alias: targetIdentifier },
+            { user: { dni: targetIdentifier } },
+          ],
+        },
+        include: { user: true },
+      });
+
+      if (!targetAccount) throw new Error('La cuenta destino no existe.');
+
+      const centralVault = await LedgerService.getCentralVaultAccount(tx);
+
+      // Crear entrada de diario (Journal)
+      const reference = generateReference();
+      const journalEntry = await tx.journalEntry.create({
+        data: {
+          type: JournalType.ADMIN_ADJUSTMENT,
+          description: reason || 'Ajuste de saldo administrativo',
+          status: TransactionStatus.COMPLETED,
+          amount: new Decimal(amount),
+          reference,
+        },
+      });
+
+      // Crear registros de libro contable (LedgerEntries)
+      await tx.ledgerEntry.createMany({
+        data: [
+          {
+            journalEntryId: journalEntry.id,
+            accountId: centralVault.id,
+            type: EntryType.DEBIT, // Debito en activo (aumenta o registra la salida del vault)
+            amount: new Decimal(amount),
+          },
+          {
+            journalEntryId: journalEntry.id,
+            accountId: targetAccount.id,
+            type: EntryType.CREDIT, // Crédito en pasivo (aumenta saldo usuario)
+            amount: new Decimal(amount),
+          },
+        ],
+      });
+
+      // Actualizar saldos contables
+      const updatedVaultBalance = new Decimal(centralVault.balance).add(amount);
+      const updatedTargetBalance = new Decimal(targetAccount.balance).add(amount);
+
+      await tx.account.update({
+        where: { id: centralVault.id },
+        data: { balance: updatedVaultBalance },
+      });
+
+      await tx.account.update({
+        where: { id: targetAccount.id },
+        data: { balance: updatedTargetBalance },
+      });
+
+      return {
+        journalEntry,
+        targetAccount,
+        updatedTargetBalance,
+      };
+    });
+  }
 }

@@ -5,6 +5,7 @@ import { HomeView } from './views/HomeView';
 import { TransferView } from './views/TransferView';
 import { HistoryView } from './views/HistoryView';
 import { ProfileView } from './views/ProfileView';
+import { AdminDashboardView } from './views/AdminDashboardView';
 import { API_URL } from './config';
 
 interface Toast {
@@ -331,6 +332,9 @@ export default function App() {
               )}
               {activeTab === 'history' && <HistoryView transactions={transactions} />}
               {activeTab === 'profile' && <ProfileView account={account} onLogout={handleLogout} />}
+              {activeTab === 'admin' && user?.role === 'ADMIN' && (
+                <AdminDashboardView token={token} showToast={showToast} />
+              )}
             </div>
 
             {/* BOTTOM TAB NAVIGATION BAR */}
@@ -374,6 +378,18 @@ export default function App() {
                 <User className="w-5 h-5" />
                 <span className="text-[9px] font-bold mt-1">Perfil</span>
               </button>
+
+              {user?.role === 'ADMIN' && (
+                <button
+                  onClick={() => setActiveTab('admin')}
+                  className={`flex flex-col items-center justify-center w-12 h-12 transition-all ${
+                    activeTab === 'admin' ? 'text-fintech-primary' : 'text-slate-500 hover:text-slate-300'
+                  }`}
+                >
+                  <ShieldCheck className="w-5 h-5" />
+                  <span className="text-[9px] font-bold mt-1">Panel Admin</span>
+                </button>
+              )}
             </div>
           </div>
         )}
