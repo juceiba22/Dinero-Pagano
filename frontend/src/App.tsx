@@ -89,7 +89,7 @@ export default function App() {
 
     const WS_URL = API_URL
       .replace("https://", "wss://")
-      .replace("http://", "ws://");
+      .replace("http://", "wss://");
     console.log(`[WS] Conectando a ${WS_URL}...`);
     const ws = new WebSocket(WS_URL);
     wsRef.current = ws;
