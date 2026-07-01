@@ -154,7 +154,7 @@ export class LedgerService {
    */
   static async executePendingTransfer(journalEntryId: string, fromUserId: string, targetAccountId: string, amount: number) {
     return await prisma.$transaction(async (tx) => {
-      // 1. Fetch and Lock source account (prevent race conditions)
+      // 1. Fetch source account and target account to obtain their database IDs
       const sourceAccount = await tx.account.findUnique({
         where: { userId: fromUserId },
       });
@@ -163,12 +163,6 @@ export class LedgerService {
         throw new Error('Cuenta de origen no encontrada en la transacción.');
       }
 
-      // Check balance inside transaction
-      if (new Decimal(sourceAccount.balance).lessThan(amount)) {
-        throw new Error('Saldo insuficiente al momento de ejecutar.');
-      }
-
-      // 2. Fetch target account
       const targetAccount = await tx.account.findUnique({
         where: { id: targetAccountId },
       });
@@ -177,17 +171,40 @@ export class LedgerService {
         throw new Error('Cuenta destino no encontrada en la transacción.');
       }
 
+      // 2. Concurrency protection: Lock both account rows using SELECT ... FOR UPDATE in sorted order to prevent deadlocks
+      const sortedIds = [sourceAccount.id, targetAccount.id].sort();
+      await tx.$executeRawUnsafe(
+        `SELECT id, balance FROM "Account" WHERE id IN ('${sortedIds[0]}', '${sortedIds[1]}') FOR UPDATE`
+      );
+
+      // Re-fetch current balances after locking to operate on up-to-date values
+      const lockedSourceAccount = await tx.account.findUnique({
+        where: { id: sourceAccount.id },
+      });
+      const lockedTargetAccount = await tx.account.findUnique({
+        where: { id: targetAccount.id },
+      });
+
+      if (!lockedSourceAccount || !lockedTargetAccount) {
+        throw new Error('Error al bloquear cuentas concurrentes.');
+      }
+
+      // Check balance inside the row-lock transaction
+      if (new Decimal(lockedSourceAccount.balance).lessThan(amount)) {
+        throw new Error('Saldo insuficiente al momento de ejecutar.');
+      }
+
       // 3. Update balances in Account table
-      const finalSourceBalance = new Decimal(sourceAccount.balance).sub(amount);
-      const finalTargetBalance = new Decimal(targetAccount.balance).add(amount);
+      const finalSourceBalance = new Decimal(lockedSourceAccount.balance).sub(amount);
+      const finalTargetBalance = new Decimal(lockedTargetAccount.balance).add(amount);
 
       await tx.account.update({
-        where: { id: sourceAccount.id },
+        where: { id: lockedSourceAccount.id },
         data: { balance: finalSourceBalance },
       });
 
       await tx.account.update({
-        where: { id: targetAccount.id },
+        where: { id: lockedTargetAccount.id },
         data: { balance: finalTargetBalance },
       });
 
@@ -196,13 +213,13 @@ export class LedgerService {
         data: [
           {
             journalEntryId,
-            accountId: sourceAccount.id,
+            accountId: lockedSourceAccount.id,
             type: EntryType.DEBIT, // Debit liability reduces balance
             amount: new Decimal(amount),
           },
           {
             journalEntryId,
-            accountId: targetAccount.id,
+            accountId: lockedTargetAccount.id,
             type: EntryType.CREDIT, // Credit liability increases balance
             amount: new Decimal(amount),
           },
@@ -252,6 +269,20 @@ export class LedgerService {
 
       const systemCashAccount = await LedgerService.getSystemCashAccount(tx);
 
+      // Concurrency lock
+      const sortedIds = [systemCashAccount.id, userAccount.id].sort();
+      await tx.$executeRawUnsafe(
+        `SELECT id, balance FROM "Account" WHERE id IN ('${sortedIds[0]}', '${sortedIds[1]}') FOR UPDATE`
+      );
+
+      // Re-fetch current balances
+      const lockedSystemCashAccount = await tx.account.findUnique({ where: { id: systemCashAccount.id } });
+      const lockedUserAccount = await tx.account.findUnique({ where: { id: userAccount.id }, include: { user: true } });
+
+      if (!lockedSystemCashAccount || !lockedUserAccount) {
+        throw new Error('Error al bloquear cuentas concurrentes para el depósito.');
+      }
+
       // Create completed Journal Entry
       const reference = generateReference();
       const journalEntry = await tx.journalEntry.create({
@@ -269,13 +300,13 @@ export class LedgerService {
         data: [
           {
             journalEntryId: journalEntry.id,
-            accountId: systemCashAccount.id,
+            accountId: lockedSystemCashAccount.id,
             type: EntryType.DEBIT, // Debit asset increases balance
             amount: new Decimal(amount),
           },
           {
             journalEntryId: journalEntry.id,
-            accountId: userAccount.id,
+            accountId: lockedUserAccount.id,
             type: EntryType.CREDIT, // Credit liability increases user balance
             amount: new Decimal(amount),
           },
@@ -283,16 +314,16 @@ export class LedgerService {
       });
 
       // Update balances
-      const updatedSystemBalance = new Decimal(systemCashAccount.balance).add(amount); // Debited asset -> balance increases
-      const updatedUserBalance = new Decimal(userAccount.balance).add(amount);       // Credited liability -> balance increases
+      const updatedSystemBalance = new Decimal(lockedSystemCashAccount.balance).add(amount); // Debited asset -> balance increases
+      const updatedUserBalance = new Decimal(lockedUserAccount.balance).add(amount);       // Credited liability -> balance increases
 
       await tx.account.update({
-        where: { id: systemCashAccount.id },
+        where: { id: lockedSystemCashAccount.id },
         data: { balance: updatedSystemBalance },
       });
 
       const updatedAccount = await tx.account.update({
-        where: { id: userAccount.id },
+        where: { id: lockedUserAccount.id },
         data: { balance: updatedUserBalance },
         include: { user: true },
       });
@@ -318,17 +349,31 @@ export class LedgerService {
       });
 
       if (!userAccount) throw new Error('Cuenta de usuario no encontrada.');
-      if (new Decimal(userAccount.balance).lessThan(amount)) {
-        throw new Error('Saldo insuficiente.');
+      const merchantAccount = await LedgerService.getSystemMerchantAccount(tx, merchantAlias);
+
+      // Concurrency lock
+      const sortedIds = [userAccount.id, merchantAccount.id].sort();
+      await tx.$executeRawUnsafe(
+        `SELECT id, balance FROM "Account" WHERE id IN ('${sortedIds[0]}', '${sortedIds[1]}') FOR UPDATE`
+      );
+
+      // Re-fetch current balances
+      const lockedUserAccount = await tx.account.findUnique({ where: { id: userAccount.id } });
+      const lockedMerchantAccount = await tx.account.findUnique({ where: { id: merchantAccount.id } });
+
+      if (!lockedUserAccount || !lockedMerchantAccount) {
+        throw new Error('Error al bloquear cuentas concurrentes para el pago QR.');
       }
 
-      const merchantAccount = await LedgerService.getSystemMerchantAccount(tx, merchantAlias);
+      if (new Decimal(lockedUserAccount.balance).lessThan(amount)) {
+        throw new Error('Saldo insuficiente.');
+      }
 
       const reference = generateReference();
       const journalEntry = await tx.journalEntry.create({
         data: {
           type: JournalType.QR_PAYMENT,
-          description: `Pago QR a ${merchantAccount.name}`,
+          description: `Pago QR a ${lockedMerchantAccount.name}`,
           status: TransactionStatus.COMPLETED,
           amount: new Decimal(amount),
           reference,
@@ -340,13 +385,13 @@ export class LedgerService {
         data: [
           {
             journalEntryId: journalEntry.id,
-            accountId: userAccount.id,
+            accountId: lockedUserAccount.id,
             type: EntryType.DEBIT, // Debit liability decreases balance
             amount: new Decimal(amount),
           },
           {
             journalEntryId: journalEntry.id,
-            accountId: merchantAccount.id,
+            accountId: lockedMerchantAccount.id,
             type: EntryType.CREDIT, // Credit liability increases balance
             amount: new Decimal(amount),
           },
@@ -354,16 +399,16 @@ export class LedgerService {
       });
 
       // Update balances
-      const updatedUserBalance = new Decimal(userAccount.balance).sub(amount);
-      const updatedMerchantBalance = new Decimal(merchantAccount.balance).add(amount);
+      const updatedUserBalance = new Decimal(lockedUserAccount.balance).sub(amount);
+      const updatedMerchantBalance = new Decimal(lockedMerchantAccount.balance).add(amount);
 
       const updatedAccount = await tx.account.update({
-        where: { id: userAccount.id },
+        where: { id: lockedUserAccount.id },
         data: { balance: updatedUserBalance },
       });
 
       await tx.account.update({
-        where: { id: merchantAccount.id },
+        where: { id: lockedMerchantAccount.id },
         data: { balance: updatedMerchantBalance },
       });
 
@@ -420,6 +465,20 @@ export class LedgerService {
 
       const centralVault = await LedgerService.getCentralVaultAccount(tx);
 
+      // Concurrency lock
+      const sortedIds = [centralVault.id, targetAccount.id].sort();
+      await tx.$executeRawUnsafe(
+        `SELECT id, balance FROM "Account" WHERE id IN ('${sortedIds[0]}', '${sortedIds[1]}') FOR UPDATE`
+      );
+
+      // Re-fetch current balances
+      const lockedCentralVault = await tx.account.findUnique({ where: { id: centralVault.id } });
+      const lockedTargetAccount = await tx.account.findUnique({ where: { id: targetAccount.id }, include: { user: true } });
+
+      if (!lockedCentralVault || !lockedTargetAccount) {
+        throw new Error('Error al bloquear cuentas concurrentes para el ajuste.');
+      }
+
       // Crear entrada de diario (Journal)
       const reference = generateReference();
       const journalEntry = await tx.journalEntry.create({
@@ -437,13 +496,13 @@ export class LedgerService {
         data: [
           {
             journalEntryId: journalEntry.id,
-            accountId: centralVault.id,
+            accountId: lockedCentralVault.id,
             type: EntryType.DEBIT, // Debito en activo (aumenta o registra la salida del vault)
             amount: new Decimal(amount),
           },
           {
             journalEntryId: journalEntry.id,
-            accountId: targetAccount.id,
+            accountId: lockedTargetAccount.id,
             type: EntryType.CREDIT, // Crédito en pasivo (aumenta saldo usuario)
             amount: new Decimal(amount),
           },
@@ -451,22 +510,22 @@ export class LedgerService {
       });
 
       // Actualizar saldos contables
-      const updatedVaultBalance = new Decimal(centralVault.balance).add(amount);
-      const updatedTargetBalance = new Decimal(targetAccount.balance).add(amount);
+      const updatedVaultBalance = new Decimal(lockedCentralVault.balance).add(amount);
+      const updatedTargetBalance = new Decimal(lockedTargetAccount.balance).add(amount);
 
       await tx.account.update({
-        where: { id: centralVault.id },
+        where: { id: lockedCentralVault.id },
         data: { balance: updatedVaultBalance },
       });
 
       await tx.account.update({
-        where: { id: targetAccount.id },
+        where: { id: lockedTargetAccount.id },
         data: { balance: updatedTargetBalance },
       });
 
       return {
         journalEntry,
-        targetAccount,
+        targetAccount: lockedTargetAccount,
         updatedTargetBalance,
       };
     });

@@ -1,6 +1,6 @@
 datasource db {
-  provider = "sqlite"
-  url      = "file:./dev.db"
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 generator client {
@@ -23,10 +23,10 @@ model Account {
   id            String        @id @default(uuid())
   name          String
   type          String        // 'ASSET' | 'LIABILITY'
-  balance       Decimal       @default(0)
+  balance       Decimal       @default(0) @db.Decimal(15, 2)
   currency      String        @default("ARS")
   userId        String?       @unique
-  user          User?         @relation(fields: [userId], references: [id])
+  user          User?         @relation(fields: [userId], references: [id], onDelete: Cascade)
   cvu           String?       @unique
   alias         String?       @unique
   ledgerEntries LedgerEntry[]
@@ -39,7 +39,7 @@ model JournalEntry {
   type          String        // 'TRANSFER' | 'DEPOSIT' | 'QR_PAYMENT'
   description   String
   status        String        @default("PENDING") // 'PENDING' | 'COMPLETED' | 'FAILED'
-  amount        Decimal
+  amount        Decimal       @db.Decimal(15, 2)
   reference     String        @unique
   ledgerEntries LedgerEntry[]
   createdAt     DateTime      @default(now())
@@ -53,6 +53,6 @@ model LedgerEntry {
   accountId      String
   account        Account      @relation(fields: [accountId], references: [id])
   type           String       // 'DEBIT' | 'CREDIT'
-  amount         Decimal
+  amount         Decimal      @db.Decimal(15, 2)
   createdAt      DateTime     @default(now())
 }
