@@ -4,13 +4,13 @@
   "description": "Educational virtual wallet backend simulator with double-entry accounting ledger.",
   "main": "dist/server.js",
   "scripts": {
-    "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
-    "build": "tsc",
-    "start": "node dist/server.js",
-    "prisma:generate": "prisma generate",
-    "prisma:migrate": "prisma db push",
-    "prisma:seed": "ts-node prisma/seed.ts"
-  },
+  "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
+  "build": "tsc",
+  "start": "npx prisma db push --accept-data-loss && node dist/server.js",
+  "prisma:generate": "prisma generate",
+  "prisma:migrate": "prisma db push",
+  "prisma:seed": "ts-node prisma/seed.ts"
+},
   "dependencies": {
     "@prisma/client": "^5.12.1",
     "bcryptjs": "^2.4.3",
