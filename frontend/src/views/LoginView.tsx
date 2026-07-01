@@ -12,6 +12,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [startingBalance, setStartingBalance] = useState('15000');
+  const [dni, setDni] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -25,7 +26,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
         ? `${API_URL}/api/auth/register`
         : `${API_URL}/api/auth/login`;
       const body = isRegistering
-        ? { email, password, name, startingBalance: parseFloat(startingBalance) }
+        ? { email, password, name, startingBalance: parseFloat(startingBalance), dni }
         : { email, password };
 
       const response = await fetch(endpoint, {
@@ -117,22 +118,41 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           {isRegistering && (
-            <div>
-              <label className="block text-xs font-semibold text-slate-400 mb-1.5">Nombre Completo</label>
-              <div className="relative">
-                <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-500">
-                  <User className="w-4 h-4" />
-                </span>
-                <input
-                  type="text"
-                  required
-                  placeholder="Ej. Juan Pérez"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="w-full bg-[#181829] border border-white/5 focus:border-fintech-primary/50 text-white rounded-xl py-2.5 pl-10 pr-4 text-sm focus:outline-none transition-all"
-                />
+            <>
+              <div>
+                <label className="block text-xs font-semibold text-slate-400 mb-1.5">Nombre Completo</label>
+                <div className="relative">
+                  <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-500">
+                    <User className="w-4 h-4" />
+                  </span>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Ej. Juan Pérez"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    className="w-full bg-[#181829] border border-white/5 focus:border-fintech-primary/50 text-white rounded-xl py-2.5 pl-10 pr-4 text-sm focus:outline-none transition-all"
+                  />
+                </div>
               </div>
-            </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-400 mb-1.5">DNI</label>
+                <div className="relative">
+                  <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-500">
+                    <User className="w-4 h-4" />
+                  </span>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Ej. 12345678"
+                    value={dni}
+                    onChange={(e) => setDni(e.target.value)}
+                    className="w-full bg-[#181829] border border-white/5 focus:border-fintech-primary/50 text-white rounded-xl py-2.5 pl-10 pr-4 text-sm focus:outline-none transition-all"
+                  />
+                </div>
+              </div>
+            </>
           )}
 
           <div>

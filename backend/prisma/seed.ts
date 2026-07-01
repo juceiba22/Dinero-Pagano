@@ -52,6 +52,7 @@ async function main() {
     {
       name: 'Usuario Prueba',
       email: 'test@wallet.com',
+      dni: '12345678',
       cvu: '0000007912345678901234',
       alias: 'usuario.prueba.fintech',
       startingBalance: 15000,
@@ -59,6 +60,7 @@ async function main() {
     {
       name: 'Juan Pérez',
       email: 'juan@perez.com',
+      dni: '22222222',
       cvu: '0000007911111111111111',
       alias: 'juan.perez.pago',
       startingBalance: 25000,
@@ -66,6 +68,7 @@ async function main() {
     {
       name: 'María Rodríguez',
       email: 'maria@rodriguez.com',
+      dni: '33333333',
       cvu: '0000007922222222222222',
       alias: 'maria.rodriguez.efectivo',
       startingBalance: 45000,
@@ -78,6 +81,7 @@ async function main() {
         name: u.name,
         email: u.email,
         password: hashedPassword,
+        dni: u.dni,
       },
     });
 

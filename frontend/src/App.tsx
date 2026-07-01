@@ -43,6 +43,7 @@ export default function App() {
   const [simSender, setSimSender] = useState('Carlos Gómez (Simulado)');
   const [simLoading, setSimLoading] = useState(false);
   const [simLogs, setSimLogs] = useState<string[]>([]);
+  const [simOpen, setSimOpen] = useState(false);
 
   // Fetch account and transaction data
   const fetchData = async () => {
@@ -279,363 +280,319 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-[#070710] py-6 px-4 flex flex-col xl:flex-row justify-center items-center gap-10 overflow-x-hidden">
+    <div className="w-full min-h-screen bg-[#0B0B14] text-slate-100 flex flex-col justify-between relative overflow-hidden">
       
-      {/* LEFT PANEL: EDUCATIONAL CONTROL SIMULATOR (Side panel outside mobile container) */}
-      <div className="w-full max-w-md bg-[#0D0D1E] border border-white/5 rounded-3xl p-6 shadow-2xl space-y-5 shrink-0 xl:self-start xl:mt-8">
-        <div>
-          <div className="flex items-center gap-2">
-            <Sparkles className="w-5 h-5 text-fintech-warning" />
-            <h2 className="text-md font-extrabold text-white tracking-tight uppercase">
-              Consola del Simulador
-            </h2>
+      {/* IN-APP TOAST NOTIFICATION BOX (Simulated Push Alerts) */}
+      <div className="absolute top-4 inset-x-4 z-50 pointer-events-none space-y-2">
+        {toasts.map((toast) => (
+          <div
+            key={toast.id}
+            className="w-full max-w-md mx-auto glass-panel rounded-2xl p-3.5 flex items-start gap-3 shadow-2xl pointer-events-auto border-l-4 border-l-fintech-primary animate-[slideDown_0.2s_ease-out] relative"
+          >
+            <div className="w-8 h-8 rounded-xl bg-fintech-primary/10 flex items-center justify-center text-fintech-primary shrink-0">
+              <Bell className="w-4 h-4" />
+            </div>
+            <div className="flex-1 min-w-0 pr-4">
+              <h4 className="text-xs font-bold text-white tracking-tight">{toast.title}</h4>
+              <p className="text-[10px] text-slate-300 mt-0.5 leading-normal">{toast.message}</p>
+            </div>
+            <button
+              onClick={() => setToasts((prev) => prev.filter((t) => t.id !== toast.id))}
+              className="absolute top-2.5 right-2.5 text-slate-500 hover:text-white"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
           </div>
-          <p className="text-[11px] text-fintech-neutral mt-1">
-            Esta consola simula eventos externos a la app (como pasarelas de pago o transferencias bancarias ACH) para demostrar la partida doble y notificaciones WebSocket en tiempo real.
-          </p>
-        </div>
+        ))}
+      </div>
 
-        {token ? (
-          <div className="space-y-4">
-            {/* Action 1: Simulator Incoming Transfer */}
-            <div className="bg-[#121226] border border-white/5 rounded-2xl p-4 space-y-3">
-              <span className="text-xs font-bold text-slate-200 block">
-                💸 Simular Transferencia Entrante
-              </span>
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="text-[9px] text-slate-500 uppercase block">Monto (ARS)</label>
-                  <input
-                    type="number"
-                    value={simAmount}
-                    onChange={(e) => setSimAmount(e.target.value)}
-                    className="w-full bg-[#18182E] border border-white/5 text-white rounded-lg p-2 text-xs focus:outline-none focus:border-fintech-primary/50"
-                  />
-                </div>
-                <div>
-                  <label className="text-[9px] text-slate-500 uppercase block">Remitente</label>
-                  <input
-                    type="text"
-                    value={simSender}
-                    onChange={(e) => setSimSender(e.target.value)}
-                    className="w-full bg-[#18182E] border border-white/5 text-white rounded-lg p-2 text-xs focus:outline-none focus:border-fintech-primary/50"
-                  />
-                </div>
-              </div>
+      {/* CORE VIEWPORT */}
+      <div className="flex-1 flex flex-col justify-between overflow-hidden">
+        {!token ? (
+          <LoginView onLoginSuccess={handleLoginSuccess} />
+        ) : (
+          <div className="flex-1 flex flex-col justify-between h-full overflow-hidden">
+            <div className="flex-1 overflow-hidden">
+              {activeTab === 'home' && (
+                <HomeView
+                  account={account}
+                  transactions={transactions}
+                  onNavigate={setActiveTab}
+                  onOpenDeposit={() => { setDepositAmount('1000'); setDepositOpen(true); }}
+                  onOpenQR={() => setQrOpen(true)}
+                />
+              )}
+              {activeTab === 'transfer' && (
+                <TransferView
+                  userBalance={account?.balance || '0'}
+                  onNavigate={setActiveTab}
+                  wsMessage={lastWSMessage}
+                  clearWSMessage={() => setLastWSMessage(null)}
+                  token={token}
+                />
+              )}
+              {activeTab === 'history' && <HistoryView transactions={transactions} />}
+              {activeTab === 'profile' && <ProfileView account={account} onLogout={handleLogout} />}
+            </div>
+
+            {/* BOTTOM TAB NAVIGATION BAR */}
+            <div className="h-16 border-t border-white/5 bg-[#0F0F1D]/80 flex justify-around items-center px-4 shrink-0">
               <button
-                onClick={triggerIncomingSimulation}
-                disabled={simLoading}
-                className="w-full h-9 bg-fintech-primary hover:bg-fintech-primaryHover text-white rounded-lg font-bold text-xs flex items-center justify-center gap-1 transition-all disabled:opacity-50"
+                onClick={() => setActiveTab('home')}
+                className={`flex flex-col items-center justify-center w-12 h-12 transition-all ${
+                  activeTab === 'home' ? 'text-fintech-primary' : 'text-slate-500 hover:text-slate-300'
+                }`}
               >
-                {simLoading ? <Loader2 className="w-4.5 h-4.5 animate-spin" /> : 'Disparar Transferencia Externa'}
+                <Home className="w-5 h-5" />
+                <span className="text-[9px] font-bold mt-1">Inicio</span>
+              </button>
+
+              <button
+                onClick={() => setActiveTab('transfer')}
+                className={`flex flex-col items-center justify-center w-12 h-12 transition-all ${
+                  activeTab === 'transfer' ? 'text-fintech-primary' : 'text-slate-500 hover:text-slate-300'
+                }`}
+              >
+                <ArrowUpRight className="w-5 h-5" />
+                <span className="text-[9px] font-bold mt-1">Transferir</span>
+              </button>
+
+              <button
+                onClick={() => setActiveTab('history')}
+                className={`flex flex-col items-center justify-center w-12 h-12 transition-all ${
+                  activeTab === 'history' ? 'text-fintech-primary' : 'text-slate-500 hover:text-slate-300'
+                }`}
+              >
+                <History className="w-5 h-5" />
+                <span className="text-[9px] font-bold mt-1">Actividad</span>
+              </button>
+
+              <button
+                onClick={() => setActiveTab('profile')}
+                className={`flex flex-col items-center justify-center w-12 h-12 transition-all ${
+                  activeTab === 'profile' ? 'text-fintech-primary' : 'text-slate-500 hover:text-slate-300'
+                }`}
+              >
+                <User className="w-5 h-5" />
+                <span className="text-[9px] font-bold mt-1">Perfil</span>
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* FLOATING ACTION BUTTON (FAB) FOR SIMULATOR CONSOLE */}
+      {token && (
+        <button
+          onClick={() => setSimOpen(true)}
+          className="absolute bottom-20 right-4 w-10 h-10 rounded-full bg-fintech-primary hover:bg-fintech-primaryHover text-white flex items-center justify-center shadow-lg shadow-fintech-primary/30 active:scale-90 transition-all z-40 ring-pulse-effect"
+        >
+          <Sparkles className="w-4.5 h-4.5" />
+        </button>
+      )}
+
+      {/* SIMULATED QR CODE SCANNER OVERLAY */}
+      {qrOpen && (
+        <div className="absolute inset-0 bg-[#000000FA] z-50 flex flex-col justify-between p-5 text-center">
+          <div className="flex justify-between items-center text-white mt-4 shrink-0">
+            <span className="font-bold text-sm">Escanear Pago QR</span>
+            <button
+              onClick={() => { setQrOpen(false); setModalError(''); }}
+              className="w-8 h-8 rounded-full bg-slate-900 flex items-center justify-center text-slate-400 hover:text-white"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
+          {/* Viewfinder Mock */}
+          <div className="relative w-56 h-56 border-2 border-dashed border-fintech-accent/40 rounded-3xl mx-auto flex flex-col items-center justify-center bg-slate-900/20 my-auto">
+            <div className="absolute top-4 left-4 w-6 h-6 border-t-2 border-l-2 border-fintech-accent"></div>
+            <div className="absolute top-4 right-4 w-6 h-6 border-t-2 border-r-2 border-fintech-accent"></div>
+            <div className="absolute bottom-4 left-4 w-6 h-6 border-b-2 border-l-2 border-fintech-accent"></div>
+            <div className="absolute bottom-4 right-4 w-6 h-6 border-b-2 border-r-2 border-fintech-accent"></div>
+            <QrCode className="w-14 h-14 text-fintech-accent/30 animate-pulse" />
+          </div>
+
+          <div className="space-y-3 pb-8 shrink-0">
+            <p className="text-xs text-slate-400">
+              Seleccione un QR simulado para realizar un pago instantáneo:
+            </p>
+
+            {modalError && (
+              <p className="text-[10px] text-fintech-danger bg-red-950/20 border border-red-500/10 rounded-xl p-2.5">
+                {modalError}
+              </p>
+            )}
+
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <button
+                onClick={() => handleQRPayment('CAFE.MARTINEZ.QR', 850)}
+                disabled={processingAction}
+                className="p-3 bg-[#121226] border border-white/5 text-slate-200 rounded-2xl hover:border-fintech-accent/30 transition-all flex flex-col items-center active:scale-95 disabled:opacity-50"
+              >
+                <span className="font-bold text-white">Café Martínez</span>
+                <span className="text-[10px] text-fintech-accent mt-0.5">$850</span>
+              </button>
+              <button
+                onClick={() => handleQRPayment('CAFE.MARTINEZ.QR', 2300)}
+                disabled={processingAction}
+                className="p-3 bg-[#121226] border border-white/5 text-slate-200 rounded-2xl hover:border-fintech-accent/30 transition-all flex flex-col items-center active:scale-95 disabled:opacity-50"
+              >
+                <span className="font-bold text-white">Pago General</span>
+                <span className="text-[10px] text-fintech-accent mt-0.5">$2.300</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* SIMULATED DEPOSIT MODAL OVERLAY */}
+      {depositOpen && (
+        <div className="absolute inset-0 bg-[#05050AC0] backdrop-blur-sm z-50 flex items-end justify-center p-4">
+          <div className="w-full bg-[#121222] border border-white/10 rounded-t-3xl rounded-b-2xl p-5 shadow-2xl space-y-4">
+            <div className="flex justify-between items-center pb-2.5 border-b border-white/5">
+              <span className="text-xs font-bold text-white">Ingresar Dinero a la Cuenta</span>
+              <button
+                onClick={() => { setDepositOpen(false); setModalError(''); }}
+                className="w-7 h-7 rounded-full bg-slate-800 hover:bg-slate-750 flex items-center justify-center text-slate-400"
+              >
+                <X className="w-4 h-4" />
               </button>
             </div>
 
-            {/* Quick Switch User */}
-            <div className="bg-[#121226] border border-white/5 rounded-2xl p-4 space-y-2">
-              <span className="text-xs font-bold text-slate-200 block">
-                👥 Conmutador Rápido de Cuenta
-              </span>
-              <p className="text-[9px] text-fintech-neutral">
-                Alterna entre terminales para probar transferencias en vivo. Loguearse como Juan y transferir al CVU de test activará instantáneamente un push toast en la app del test user.
+            <div className="space-y-4">
+              <p className="text-[10px] text-fintech-neutral leading-relaxed">
+                Esta operación simula una transferencia de recaudación externa (DEPOSIT). El ledger registrará un Débito en el Activo de la Fintech y un Crédito en el Pasivo de tu cuenta.
               </p>
-              <div className="grid grid-cols-3 gap-1.5 pt-1">
-                <button
-                  onClick={() => handleQuickSwitch('test@wallet.com')}
-                  disabled={user?.email === 'test@wallet.com' || simLoading}
-                  className={`py-1.5 rounded-lg text-[9px] font-bold border transition-all ${
-                    user?.email === 'test@wallet.com'
-                      ? 'bg-fintech-primary text-white border-transparent'
-                      : 'bg-[#18182E] text-slate-400 border-white/5 hover:bg-slate-800'
-                  }`}
-                >
-                  Test User
-                </button>
-                <button
-                  onClick={() => handleQuickSwitch('juan@perez.com')}
-                  disabled={user?.email === 'juan@perez.com' || simLoading}
-                  className={`py-1.5 rounded-lg text-[9px] font-bold border transition-all ${
-                    user?.email === 'juan@perez.com'
-                      ? 'bg-fintech-primary text-white border-transparent'
-                      : 'bg-[#18182E] text-slate-400 border-white/5 hover:bg-slate-800'
-                  }`}
-                >
-                  Juan
-                </button>
-                <button
-                  onClick={() => handleQuickSwitch('maria@rodriguez.com')}
-                  disabled={user?.email === 'maria@rodriguez.com' || simLoading}
-                  className={`py-1.5 rounded-lg text-[9px] font-bold border transition-all ${
-                    user?.email === 'maria@rodriguez.com'
-                      ? 'bg-fintech-primary text-white border-transparent'
-                      : 'bg-[#18182E] text-slate-400 border-white/5 hover:bg-slate-800'
-                  }`}
-                >
-                  María
-                </button>
-              </div>
-            </div>
-          </div>
-        ) : (
-          <div className="bg-[#121226]/50 border border-dashed border-white/5 rounded-2xl p-6 text-center text-xs text-slate-500">
-            Inicie sesión en el teléfono de la derecha para habilitar la consola de simulación interactiva.
-          </div>
-        )}
 
-        {/* Live WS Logs */}
-        <div className="space-y-2">
-          <div className="flex justify-between items-center text-xs">
-            <span className="font-bold text-slate-300">Monitoreo de Eventos (WS):</span>
-            <span className={`px-2 py-0.5 rounded-full text-[9px] font-extrabold ${
-              wsConnected ? 'bg-fintech-accent/15 text-fintech-accent' : 'bg-fintech-danger/15 text-fintech-danger'
-            }`}>
-              {wsConnected ? 'CONECTADO' : 'DESCONECTADO'}
-            </span>
-          </div>
-          <div className="bg-slate-950 rounded-xl p-3 h-32 overflow-y-auto no-scrollbar font-mono text-[9px] text-slate-400 border border-white/5 space-y-1">
-            {simLogs.length === 0 ? (
-              <span className="text-slate-600 block italic">Esperando eventos de red...</span>
-            ) : (
-              simLogs.map((log, idx) => (
-                <div key={idx} className="leading-relaxed whitespace-pre-wrap">
-                  {log}
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* CENTER / RIGHT: SMARTPHONE DEVICE MOCK CONTAINER (Strictly Mobile-Only max-w-md) */}
-      <div className="w-full max-w-sm h-[780px] bg-black rounded-[52px] p-3 shadow-2xl border-[11px] border-slate-900 ring-4 ring-slate-800/60 relative overflow-hidden flex flex-col justify-between select-none">
-        
-        {/* PHYSICAL SMARTPHONE DETAILS */}
-        {/* Notch / Speaker block */}
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-6 bg-black rounded-b-2xl z-50 flex items-center justify-center">
-          <div className="w-12 h-1 bg-slate-900 rounded-full mb-1"></div>
-        </div>
-
-        {/* DEVICE STATUS BAR */}
-        <div className="h-10 px-6 pt-2 pb-1 bg-[#0B0B14] flex justify-between items-center text-[10px] text-slate-400 font-semibold z-45 select-none select-none">
-          <span>11:40</span>
-          <div className="flex items-center gap-1.5">
-            <Wifi className="w-3 h-3 text-slate-400" />
-            <Battery className="w-3.5 h-3.5 text-slate-400" />
-          </div>
-        </div>
-
-        {/* MOBILE VIEWPORT CORE VIEWPORT */}
-        <div className="flex-1 bg-[#0B0B14] relative overflow-hidden flex flex-col justify-between">
-          
-          {/* IN-APP TOAST NOTIFICATION BOX (Simulated Push Alerts) */}
-          <div className="absolute top-2.5 inset-x-3 z-50 pointer-events-none space-y-2">
-            {toasts.map((toast) => (
-              <div
-                key={toast.id}
-                className="w-full glass-panel rounded-2xl p-3.5 flex items-start gap-3 shadow-2xl pointer-events-auto border-l-4 border-l-fintech-primary animate-[slideDown_0.2s_ease-out] relative"
-              >
-                <div className="w-8 h-8 rounded-xl bg-fintech-primary/10 flex items-center justify-center text-fintech-primary shrink-0">
-                  <Bell className="w-4 h-4" />
-                </div>
-                <div className="flex-1 min-w-0 pr-4">
-                  <h4 className="text-xs font-bold text-white tracking-tight">{toast.title}</h4>
-                  <p className="text-[10px] text-slate-300 mt-0.5 leading-normal">{toast.message}</p>
-                </div>
-                <button
-                  onClick={() => setToasts((prev) => prev.filter((t) => t.id !== toast.id))}
-                  className="absolute top-2.5 right-2.5 text-slate-500 hover:text-white"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            ))}
-          </div>
-
-          {/* VIEW CONTROLLER OR LOGIN IF NO TOKEN */}
-          {!token ? (
-            <LoginView onLoginSuccess={handleLoginSuccess} />
-          ) : (
-            <div className="flex-1 flex flex-col justify-between h-full overflow-hidden">
-              <div className="flex-1 overflow-hidden">
-                {activeTab === 'home' && (
-                  <HomeView
-                    account={account}
-                    transactions={transactions}
-                    onNavigate={setActiveTab}
-                    onOpenDeposit={() => { setDepositAmount('1000'); setDepositOpen(true); }}
-                    onOpenQR={() => setQrOpen(true)}
-                  />
-                )}
-                {activeTab === 'transfer' && (
-                  <TransferView
-                    userBalance={account?.balance || '0'}
-                    onNavigate={setActiveTab}
-                    wsMessage={lastWSMessage}
-                    clearWSMessage={() => setLastWSMessage(null)}
-                    token={token}
-                  />
-                )}
-                {activeTab === 'history' && <HistoryView transactions={transactions} />}
-                {activeTab === 'profile' && <ProfileView account={account} onLogout={handleLogout} />}
+              <div>
+                <label className="block text-[10px] text-slate-500 uppercase mb-1 font-semibold">
+                  Monto a Cargar (ARS)
+                </label>
+                <input
+                  type="number"
+                  value={depositAmount}
+                  onChange={(e) => setDepositAmount(e.target.value)}
+                  className="w-full bg-[#181829] border border-white/5 text-white rounded-xl py-2.5 px-4 text-xs focus:outline-none focus:border-indigo-500/50"
+                />
               </div>
 
-              {/* BOTTOM TAB NAVIGATION BAR */}
-              <div className="h-16 border-t border-white/5 bg-[#0F0F1D]/80 flex justify-around items-center px-4 shrink-0">
-                <button
-                  onClick={() => setActiveTab('home')}
-                  className={`flex flex-col items-center justify-center w-12 h-12 transition-all ${
-                    activeTab === 'home' ? 'text-fintech-primary' : 'text-slate-500 hover:text-slate-300'
-                  }`}
-                >
-                  <Home className="w-5 h-5" />
-                  <span className="text-[9px] font-bold mt-1">Inicio</span>
-                </button>
-
-                <button
-                  onClick={() => setActiveTab('transfer')}
-                  className={`flex flex-col items-center justify-center w-12 h-12 transition-all ${
-                    activeTab === 'transfer' ? 'text-fintech-primary' : 'text-slate-500 hover:text-slate-300'
-                  }`}
-                >
-                  <ArrowUpRight className="w-5 h-5" />
-                  <span className="text-[9px] font-bold mt-1">Transferir</span>
-                </button>
-
-                <button
-                  onClick={() => setActiveTab('history')}
-                  className={`flex flex-col items-center justify-center w-12 h-12 transition-all ${
-                    activeTab === 'history' ? 'text-fintech-primary' : 'text-slate-500 hover:text-slate-300'
-                  }`}
-                >
-                  <History className="w-5 h-5" />
-                  <span className="text-[9px] font-bold mt-1">Actividad</span>
-                </button>
-
-                <button
-                  onClick={() => setActiveTab('profile')}
-                  className={`flex flex-col items-center justify-center w-12 h-12 transition-all ${
-                    activeTab === 'profile' ? 'text-fintech-primary' : 'text-slate-500 hover:text-slate-300'
-                  }`}
-                >
-                  <User className="w-5 h-5" />
-                  <span className="text-[9px] font-bold mt-1">Perfil</span>
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* SIMULATED QR CODE SCANNER OVERLAY */}
-          {qrOpen && (
-            <div className="absolute inset-0 bg-[#000000FA] z-50 flex flex-col justify-between p-5 text-center">
-              <div className="flex justify-between items-center text-white mt-4 shrink-0">
-                <span className="font-bold text-sm">Escanear Pago QR</span>
-                <button
-                  onClick={() => { setQrOpen(false); setModalError(''); }}
-                  className="w-8 h-8 rounded-full bg-slate-900 flex items-center justify-center text-slate-400 hover:text-white"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-
-              {/* Viewfinder Mock */}
-              <div className="relative w-56 h-56 border-2 border-dashed border-fintech-accent/40 rounded-3xl mx-auto flex flex-col items-center justify-center bg-slate-900/20 my-auto">
-                <div className="absolute top-4 left-4 w-6 h-6 border-t-2 border-l-2 border-fintech-accent"></div>
-                <div className="absolute top-4 right-4 w-6 h-6 border-t-2 border-r-2 border-fintech-accent"></div>
-                <div className="absolute bottom-4 left-4 w-6 h-6 border-b-2 border-l-2 border-fintech-accent"></div>
-                <div className="absolute bottom-4 right-4 w-6 h-6 border-b-2 border-r-2 border-fintech-accent"></div>
-                <QrCode className="w-14 h-14 text-fintech-accent/30 animate-pulse" />
-              </div>
-
-              <div className="space-y-3 pb-8 shrink-0">
-                <p className="text-xs text-slate-400">
-                  Seleccione un QR simulado para realizar un pago instantáneo:
+              {modalError && (
+                <p className="text-[10px] text-fintech-danger bg-red-950/20 border border-red-500/10 rounded-xl p-2">
+                  {modalError}
                 </p>
-
-                {modalError && (
-                  <p className="text-[10px] text-fintech-danger bg-red-950/20 border border-red-500/10 rounded-xl p-2.5">
-                    {modalError}
-                  </p>
-                )}
-
-                <div className="grid grid-cols-2 gap-2 text-xs">
-                  <button
-                    onClick={() => handleQRPayment('CAFE.MARTINEZ.QR', 850)}
-                    disabled={processingAction}
-                    className="p-3 bg-[#121226] border border-white/5 text-slate-200 rounded-2xl hover:border-fintech-accent/30 transition-all flex flex-col items-center active:scale-95 disabled:opacity-50"
-                  >
-                    <span className="font-bold text-white">Café Martínez</span>
-                    <span className="text-[10px] text-fintech-accent mt-0.5">$850</span>
-                  </button>
-                  <button
-                    onClick={() => handleQRPayment('CAFE.MARTINEZ.QR', 2300)}
-                    disabled={processingAction}
-                    className="p-3 bg-[#121226] border border-white/5 text-slate-200 rounded-2xl hover:border-fintech-accent/30 transition-all flex flex-col items-center active:scale-95 disabled:opacity-50"
-                  >
-                    <span className="font-bold text-white">Pago General</span>
-                    <span className="text-[10px] text-fintech-accent mt-0.5">$2.300</span>
-                  </button>
-                </div>
-              </div>
+              )}
             </div>
-          )}
 
-          {/* SIMULATED DEPOSIT MODAL OVERLAY */}
-          {depositOpen && (
-            <div className="absolute inset-0 bg-[#05050AC0] backdrop-blur-sm z-50 flex items-end justify-center p-4">
-              <div className="w-full bg-[#121222] border border-white/10 rounded-t-3xl rounded-b-2xl p-5 shadow-2xl space-y-4">
-                <div className="flex justify-between items-center pb-2.5 border-b border-white/5">
-                  <span className="text-xs font-bold text-white">Ingresar Dinero a la Cuenta</span>
-                  <button
-                    onClick={() => { setDepositOpen(false); setModalError(''); }}
-                    className="w-7 h-7 rounded-full bg-slate-800 hover:bg-slate-750 flex items-center justify-center text-slate-400"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
+            <button
+              onClick={handleDeposit}
+              disabled={processingAction || !depositAmount || parseFloat(depositAmount) <= 0}
+              className="w-full h-11 bg-fintech-primary hover:bg-fintech-primaryHover text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1 transition-all active:scale-95 disabled:opacity-50"
+            >
+              {processingAction ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Realizar Carga'}
+            </button>
+          </div>
+        </div>
+      )}
 
-                <div className="space-y-4">
-                  <p className="text-[10px] text-fintech-neutral leading-relaxed">
-                    Esta operación simula una transferencia de recaudación externa (DEPOSIT). El ledger registrará un Débito en el Activo de la Fintech y un Crédito en el Pasivo de tu cuenta.
-                  </p>
+      {/* COLLAPSIBLE SIMULATOR CONSOLE MODAL OVERLAY */}
+      {simOpen && (
+        <div className="absolute inset-0 bg-[#05050AC0] backdrop-blur-sm z-50 flex items-end justify-center p-4">
+          <div className="w-full max-w-md bg-[#0D0D1E] border border-white/10 rounded-t-3xl rounded-b-2xl p-5 shadow-2xl space-y-4 max-h-[90%] overflow-y-auto no-scrollbar animate-[slideUp_0.2s_ease-out]">
+            <div className="flex justify-between items-center pb-2 border-b border-white/5">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-fintech-warning" />
+                <span className="text-xs font-bold text-white uppercase">Consola de Simulación</span>
+              </div>
+              <button
+                onClick={() => setSimOpen(false)}
+                className="w-7 h-7 rounded-full bg-slate-800 hover:bg-slate-750 flex items-center justify-center text-slate-400"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
 
+            <p className="text-[10px] text-fintech-neutral">
+              Utiliza esta consola para disparar transferencias simuladas o conmutar de usuario en tu dispositivo de prueba.
+            </p>
+
+            <div className="space-y-3.5">
+              <div className="bg-[#121226] border border-white/5 rounded-2xl p-4 space-y-3">
+                <span className="text-xs font-bold text-slate-200 block">💸 Simular Transferencia Entrante</span>
+                <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <label className="block text-[10px] text-slate-500 uppercase mb-1 font-semibold">
-                      Monto a Cargar (ARS)
-                    </label>
+                    <label className="text-[9px] text-slate-500 uppercase block">Monto (ARS)</label>
                     <input
                       type="number"
-                      value={depositAmount}
-                      onChange={(e) => setDepositAmount(e.target.value)}
-                      className="w-full bg-[#181829] border border-white/5 text-white rounded-xl py-2.5 px-4 text-xs focus:outline-none focus:border-indigo-500/50"
+                      value={simAmount}
+                      onChange={(e) => setSimAmount(e.target.value)}
+                      className="w-full bg-[#18182E] border border-white/5 text-white rounded-lg p-2 text-xs focus:outline-none"
                     />
                   </div>
-
-                  {modalError && (
-                    <p className="text-[10px] text-fintech-danger bg-red-950/20 border border-red-500/10 rounded-xl p-2">
-                      {modalError}
-                    </p>
-                  )}
+                  <div>
+                    <label className="text-[9px] text-slate-500 uppercase block">Remitente</label>
+                    <input
+                      type="text"
+                      value={simSender}
+                      onChange={(e) => setSimSender(e.target.value)}
+                      className="w-full bg-[#18182E] border border-white/5 text-white rounded-lg p-2 text-xs focus:outline-none"
+                    />
+                  </div>
                 </div>
-
                 <button
-                  onClick={handleDeposit}
-                  disabled={processingAction || !depositAmount || parseFloat(depositAmount) <= 0}
-                  className="w-full h-11 bg-fintech-primary hover:bg-fintech-primaryHover text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1 transition-all active:scale-95 disabled:opacity-50"
+                  onClick={triggerIncomingSimulation}
+                  disabled={simLoading}
+                  className="w-full h-9 bg-fintech-primary hover:bg-fintech-primaryHover text-white rounded-lg font-bold text-xs flex items-center justify-center gap-1 transition-all"
                 >
-                  {processingAction ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Realizar Carga'}
+                  {simLoading ? <Loader2 className="w-4.5 h-4.5 animate-spin" /> : 'Disparar Transferencia Externa'}
                 </button>
               </div>
+
+              <div className="bg-[#121226] border border-white/5 rounded-2xl p-4 space-y-2">
+                <span className="text-xs font-bold text-slate-200 block">👥 Conmutador Rápido de Cuenta</span>
+                <div className="grid grid-cols-3 gap-1.5">
+                  <button
+                    onClick={() => { handleQuickSwitch('test@wallet.com'); setSimOpen(false); }}
+                    className="py-1.5 bg-[#18182E] text-slate-300 border border-white/5 rounded-lg text-[9px] font-bold"
+                  >
+                    Test User
+                  </button>
+                  <button
+                    onClick={() => { handleQuickSwitch('juan@perez.com'); setSimOpen(false); }}
+                    className="py-1.5 bg-[#18182E] text-slate-300 border border-white/5 rounded-lg text-[9px] font-bold"
+                  >
+                    Juan
+                  </button>
+                  <button
+                    onClick={() => { handleQuickSwitch('maria@rodriguez.com'); setSimOpen(false); }}
+                    className="py-1.5 bg-[#18182E] text-slate-300 border border-white/5 rounded-lg text-[9px] font-bold"
+                  >
+                    María
+                  </button>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex justify-between items-center text-[10px]">
+                  <span className="font-bold text-slate-300">Monitoreo de Eventos (WS):</span>
+                  <span className={`px-2 py-0.5 rounded-full text-[8px] font-extrabold ${
+                    wsConnected ? 'bg-fintech-accent/15 text-fintech-accent' : 'bg-fintech-danger/15 text-fintech-danger'
+                  }`}>
+                    {wsConnected ? 'CONECTADO' : 'DESCONECTADO'}
+                  </span>
+                </div>
+                <div className="bg-slate-950 rounded-xl p-3 h-28 overflow-y-auto no-scrollbar font-mono text-[9px] text-slate-400 border border-white/5 space-y-1">
+                  {simLogs.length === 0 ? (
+                    <span className="text-slate-600 block italic">Esperando eventos de red...</span>
+                  ) : (
+                    simLogs.map((log, idx) => <div key={idx}>{log}</div>)
+                  )}
+                </div>
+              </div>
             </div>
-          )}
-
+          </div>
         </div>
-
-        {/* BOTTOM VIRTUAL PHONE HOME BAR INDICATOR */}
-        <div className="h-6 w-full flex items-center justify-center bg-[#0B0B14] shrink-0">
-          <div className="w-32 h-1 bg-slate-700/60 rounded-full mb-1"></div>
-        </div>
-
-      </div>
+      )}
 
     </div>
   );

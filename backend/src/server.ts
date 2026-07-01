@@ -127,16 +127,21 @@ function generateCvu(): string {
 // --- AUTH ROUTERS ---
 
 app.post('/api/auth/register', async (req, res) => {
-  const { email, password, name, startingBalance } = req.body;
+  const { email, password, name, startingBalance, dni } = req.body;
 
-  if (!email || !password || !name) {
-    return res.status(400).json({ error: 'Todos los campos son obligatorios.' });
+  if (!email || !password || !name || !dni) {
+    return res.status(400).json({ error: 'Todos los campos son obligatorios (incluyendo DNI).' });
   }
 
   try {
     const existingUser = await prisma.user.findUnique({ where: { email } });
     if (existingUser) {
       return res.status(400).json({ error: 'El email ya está registrado.' });
+    }
+
+    const existingDni = await prisma.user.findUnique({ where: { dni } });
+    if (existingDni) {
+      return res.status(400).json({ error: 'El DNI ya está registrado.' });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -150,6 +155,7 @@ app.post('/api/auth/register', async (req, res) => {
           email,
           password: hashedPassword,
           name,
+          dni,
         },
       });
 
@@ -264,7 +270,7 @@ app.get('/api/account/lookup', authenticateToken, async (req, res) => {
   const { identifier } = req.query;
 
   if (!identifier) {
-    return res.status(400).json({ error: 'Debe ingresar un CVU o Alias.' });
+    return res.status(400).json({ error: 'Debe ingresar un CVU, Alias o DNI.' });
   }
 
   try {
@@ -273,6 +279,7 @@ app.get('/api/account/lookup', authenticateToken, async (req, res) => {
         OR: [
           { cvu: String(identifier) },
           { alias: String(identifier) },
+          { user: { dni: String(identifier) } },
         ],
       },
       include: { user: true },

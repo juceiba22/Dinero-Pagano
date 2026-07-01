@@ -102,13 +102,14 @@ export class LedgerService {
         OR: [
           { cvu: targetIdentifier },
           { alias: targetIdentifier },
+          { user: { dni: targetIdentifier } },
         ],
       },
       include: { user: true },
     });
 
     if (!targetAccount) {
-      throw new Error('La cuenta destino (CVU o Alias) no existe.');
+      throw new Error('La cuenta destino (CVU, Alias o DNI) no existe.');
     }
 
     // Pre-validate sender account and balance
